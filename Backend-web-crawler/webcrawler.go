@@ -31,10 +31,13 @@ type AnalyzeResponse struct {
 // Entry point
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/analyze", analyzeHandler).Methods("POST")
+	r.HandleFunc("/analyze", analyzeHandler).Methods("POST", "OPTIONS") // include OPTIONS
+
+	// Wrap router with CORS
+	http.Handle("/", enableCORS(r))
 
 	fmt.Println("Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 // HTTP handler for analyzing the URL
@@ -147,4 +150,21 @@ DONE:
 		InaccessibleLinks: inaccessibleLinks,
 		HasLoginForm:      map[bool]string{true: "Yes", false: "No"}[hasLoginForm],
 	}, nil
+}
+func enableCORS(next http.Handler) http.Handler {
+	fmt.Println("checking cors")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow your frontend's origin
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// Handle preflight (OPTIONS) requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
